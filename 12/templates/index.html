@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>لوحة التحكم تحليلات سنة 2024</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes slideUp {
+            from { transform: translateY(50px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        body {
+            animation: fadeIn 1s ease-in-out;
+            font-family: 'Arial', sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 0;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: #011957;
+            color: white;
+            padding: 10px 20px;
+        }
+
+        .dashboard-title {
+            font-size: 24px;
+            font-weight: bold;
+            color: #ffc500;
+            text-align: center;
+            flex-grow: 1;
+        }
+
+        header .logo img {
+            height: 40px;
+        }
+
+        header .filter-form {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        header .filter-form select,
+        header .filter-form button {
+            padding: 8px;
+            border-radius: 5px;
+            font-size: 16px;
+            border: 1px solid #ddd;
+        }
+
+        header .icons {
+            display: flex;
+            gap: 15px;
+            font-size: 20px;
+        }
+
+        .cards {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 15px;
+            margin: 20px;
+        }
+
+        .card {
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.1);
+            font-size: 16px;
+            transition: transform 0.3s ease, background 0.3s ease;
+            min-width: 220px;
+            text-align: center;
+        }
+
+        .card:hover {
+            transform: scale(1.05);
+            background-color: #f8f9fa;
+        }
+
+        .charts {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+            justify-content: center;
+            margin-top: 20px;
+        }
+
+        canvas {
+            max-width: 100%;
+            max-height: 400px;
+            background: white;
+            border-radius: 8px;
+            padding: 10px;
+            box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        footer {
+            background-color: #011957;
+            color: white;
+            padding: 15px;
+            text-align: center;
+            font-size: 14px;
+            margin-top: 30px;
+        }
+
+        footer a {
+            color: #ffc500;
+            text-decoration: none;
+        }
+
+        footer a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="logo">
+            <img src="static/images/logo.jpg" alt="Logo">
+        </div>
+        <div class="dashboard-title">
+            لوحة التحكم <span class="highlight">تحليلات سنة 2024</span>
+        </div>
+        <div class="filter-form">
+            <form method="get">
+                <button type="submit">فلتر</button>
+                <select name="month" id="month" onchange="this.form.submit()">
+                    <option value="">الشـــهر</option>
+                    {% for m in range(1, 13) %}
+                        <option value="{{ m }}" {% if selected_month|int == m %}selected{% endif %}>{{ m }}</option>
+                    {% endfor %}
+                </select>
+                <select name="day" id="day" onchange="this.form.submit()">
+                    <option value="">اليــــوم</option>
+                    {% for day in range(1, 32) %}
+                        <option value="{{ day }}" {% if day == selected_day %}selected{% endif %}>{{ day }}</option>
+                    {% endfor %}
+                </select>
+            </form>
+        </div>
+        <div class="icons">
+            <span>🔔</span>
+            <span>❤️</span>
+            <span>🛒</span>
+        </div>
+    </header>
+    
+    <div class="cards">
+        <div class="card">عدد المشاريع: {{ num_products }}</div>
+        <div class="card">عدد المسوقين: {{ num_marketers }}</div>
+        <div class="card">عدد المتبرعين : {{ num_donors }}</div>
+        <div class="card">إجمالي التبرعات: <span id="donation-amount">{{ total_donations|round(0)|int }}</span></div>
+        <div class="card">أكثر يوم تبرعات في الشهر: <span id="donations-day">{{ most_donations_day|round(0)|int }}</span></div>
+    </div>
+
+    <div class="charts">
+        <div class="chart-section">
+            <h2>إجمالي التبرعات حسب المسوق</h2>
+            <canvas id="donationsByMarketer"></canvas>
+        </div>
+        <div class="chart-section">
+            <h2>ساعات الذروة للتبرعات</h2>
+            <canvas id="peakHours"></canvas>
+        </div>
+        <div class="chart-section">
+            <h2>تحليل التبرعات حسب الأشهر</h2>
+            <canvas id="donationsByMonth"></canvas>
+        </div>
+        <div class="chart-section">
+            <h2>إجمالي التبرعات حسب طريقة الدفع</h2>
+            <canvas id="donationsByPayment"></canvas>
+        </div>
+        <div class="chart-section">
+            <h2>إجمالي التبرعات لكل مشروع</h2>
+            <canvas id="donationsByProduct"></canvas>
+        </div>
+    </div>
+
+    <div class="client-filter">
+        <h3>اختار عدد العملاء لعرض التفاصيل:</h3>
+        <form method="get">
+            <label for="num_clients">عدد العملاء:</label>
+            <select name="num_clients" id="num_clients">
+                <option value="5" {% if selected_num_clients == 5 %}selected{% endif %}>5</option>
+                <option value="10" {% if selected_num_clients == 10 %}selected{% endif %}>10</option>
+                <option value="1000" {% if selected_num_clients == 1000 %}selected{% endif %}>1000</option>
+            </select>
+            <button type="submit">عرض</button>
+        </form>
+
+        <h4>مجموع التبرعات للأعلى {{ selected_num_clients }} عملاء:</h4>
+        <p>{{ total_donations_top_clients }}</p>
+
+        <h4>تفاصيل العملاء:</h4>
+        <ul>
+            {% for client, donation in top_clients.items() %}
+                <li>{{ client }}: {{ donation }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+
+    <script>
+        function createChart(ctx, type, data, labels, label) {
+            new Chart(ctx, {
+                type: type,
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: label,
+                        data: data,
+                        backgroundColor: ["#ff6384", "#36a2eb", "#ffcd56", "#4bc0c0", "#9966ff"]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            ticks: {
+                                beginAtZero: true,
+                                stepSize: 1,
+                                font: { size: 14 },
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        createChart(document.getElementById('donationsByProduct'), 'bar', Object.values({{ donations_by_product | tojson }}), Object.keys({{ donations_by_product | tojson }}), 'إجمالي التبرعات لكل منتج');
+        createChart(document.getElementById('donationsByMarketer'), 'bar', Object.values({{ donations_by_marketer | tojson }}), Object.keys({{ donations_by_marketer | tojson }}), 'إجمالي التبرعات لكل مسوق');
+        createChart(document.getElementById('donationsByPayment'), 'bar', Object.values({{ donations_by_payment | tojson }}), Object.keys({{ donations_by_payment | tojson }}), 'إجمالي التبرعات حسب طريقة الدفع');
+        createChart(document.getElementById('donationsByMonth'), 'line', Object.values({{ donations_by_month | tojson }}), Object.keys({{ donations_by_month | tojson }}), 'تحليل التبرعات حسب الأشهر');
+        createChart(document.getElementById('peakHours'), 'bar', Object.values({{ peak_hours | tojson }}), Array.from({length: 12}, (_, i) => i + 1), 'ساعات الذروة للتبرعات');
+    </script>
+</body>
+</html>
